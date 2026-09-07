@@ -2,26 +2,26 @@ pipeline {
     agent any
     
     environment {
-        APP_URL="http://forum.csl.com"
+        APP_URL="http://forum.devops.com"
 		APP_KEY="base64:EGCYLQuhy9xzmuPNnPvPNiXlpuiiOh0y4jI7N6/F5E0="
-        CLIENT_APP_URL="http://forum.csl.com"
+        CLIENT_APP_URL="http://forum.devops.com"
 		APP_ENV="Production"
         APP_DEBUG="False"
-		DB_HOST="192.168.44.149"
-        DB_DATABASE="forum"
-        DB_USERNAME="root"
-        DB_PASSWORD="'Time@12345'"
+		DB_HOST="172.16.188.136"
+        DB_DATABASE="forumdb"
+        DB_USERNAME="forum"
+        DB_PASSWORD="'Ltest@12345'"
 
-        DEPLOY_PATH = "/var/www/html/forum"
+        DEPLOY_PATH = "/var/www/forum-pipe/"
 		SSH_USER       = "deploy"
-        DEPLOY_SERVER  = "192.168.44.210"
+        DEPLOY_SERVER  = "172.16.188.137"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 // Checkout source code from Git repository
-                git branch: 'master', credentialsId: 'a9a8575b-9023-42a2-9917-31d85ab13b77', url: 'https://github.com/Iqbalkhan319/forum-pipe.git'
+                git branch: 'master', credentialsId: '9f1426ce-d7e3-4298-926b-b5cdd5501800', url: 'https://github.com/Iqbalkhan319/forum-pipe.git'
             }
         }
         stage('Change env') {
@@ -68,17 +68,23 @@ pipeline {
             steps {
                 script {
                     sh '''
-                    ssh ${SSH_USER}@${DEPLOY_SERVER} 'sudo mkdir -p /var/www/html/forum && sudo chown -R deploy. /var/www/html/forum'
-                    rsync -avhP -e "ssh -o StrictHostKeyChecking=no" --exclude '.git/' . ${SSH_USER}@${DEPLOY_SERVER}:/var/www/html/forum
-                    ssh ${SSH_USER}@${DEPLOY_SERVER} <<'EOF'
-                    sudo chown -R www-data. /var/www/html/forum
-                    cd /var/www/html/forum
+                ssh ${SSH_USER}@${DEPLOY_SERVER} "sudo mkdir -p '${DEPLOY_PATH}' && sudo chown -R deploy:deploy '${DEPLOY_PATH}'"
+
+                rsync -avhP \
+                    -e "ssh -o StrictHostKeyChecking=no" \
+                    --exclude '.git/' \
+                    ./ \
+                    ${SSH_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+
+                ssh ${SSH_USER}@${DEPLOY_SERVER} "
+                    sudo chown -R www-data:www-data '${DEPLOY_PATH}'
+                    cd '${DEPLOY_PATH}'
                     sudo -u www-data composer install --ignore-platform-reqs
                     sudo -u www-data php artisan config:clear
                     sudo -u www-data php artisan cache:clear
                     sudo -u www-data php artisan migrate
-                    << EOF
-                    '''
+                "
+            '''
                 }
             }
         }
